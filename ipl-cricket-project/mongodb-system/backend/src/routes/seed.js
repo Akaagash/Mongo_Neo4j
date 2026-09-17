@@ -1,7 +1,7 @@
-require('dotenv').config({ override: true });
-
-const { connectMongoDB } = require('../config/mongodb');
+const express = require('express');
 const Team = require('../models/team');
+
+const router = express.Router();
 
 const teams = [
   { name: 'Chennai Super Kings', city: 'Chennai', captain: 'Ruturaj Gaikwad' },
@@ -16,22 +16,21 @@ const teams = [
   { name: 'Kolkata Knight Riders', city: 'Kolkata', captain: 'Ajinkya Rahane' },
 ];
 
-async function seedTeams() {
-  await connectMongoDB();
-  await Team.bulkWrite(
-    teams.map((team) => ({
-      updateOne: {
-        filter: { name: team.name },
-        update: { $set: team },
-        upsert: true,
-      },
-    })),
-  );
-  console.log(`Seeded ${teams.length} IPL teams`);
-  process.exit(0);
-}
-
-seedTeams().catch((error) => {
-  console.error('Team seed failed:', error.message);
-  process.exit(1);
+router.post('/', async (req, res) => {
+  try {
+    await Team.bulkWrite(
+      teams.map((team) => ({
+        updateOne: {
+          filter: { name: team.name },
+          update: { $set: team },
+          upsert: true,
+        },
+      })),
+    );
+    res.json({ success: true, message: `Seeded ${teams.length} IPL teams successfully.` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
+
+module.exports = router;

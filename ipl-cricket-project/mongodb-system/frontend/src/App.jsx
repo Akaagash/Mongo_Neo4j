@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import Compass from './Compass'
 import './App.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
 
 function App() {
+  const [currentRoute, setCurrentRoute] = useState('home')
   const [teams, setTeams] = useState([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('loading')
@@ -22,6 +24,21 @@ function App() {
       setTeams(payload.data || [])
       setLastUpdated(new Date())
       setStatus('connected')
+    } catch (requestError) {
+      setStatus('error')
+      setError(requestError.message)
+    }
+  }
+
+  async function seedData() {
+    setStatus('loading')
+    setError('')
+
+    try {
+      const response = await fetch(`${API_URL}/api/seed`, { method: 'POST' })
+      if (!response.ok) throw new Error('The MongoDB API did not respond successfully to the seed request.')
+      
+      await loadTeams()
     } catch (requestError) {
       setStatus('error')
       setError(requestError.message)
@@ -48,6 +65,10 @@ function App() {
     error: 'Connection issue',
     loading: 'Checking database',
   }[status]
+
+  if (currentRoute === 'compass') {
+    return <Compass apiUrl={API_URL} onBack={() => setCurrentRoute('home')} />
+  }
 
   return (
     <main className="app-shell">
@@ -94,6 +115,9 @@ function App() {
             </span>
             <button className="refresh-button" type="button" onClick={loadTeams} disabled={status === 'loading'}>
               <span aria-hidden="true">↻</span> Refresh
+            </button>
+            <button className="seed-button" type="button" onClick={() => setCurrentRoute('compass')}>
+              Manage Data
             </button>
           </div>
         </div>

@@ -42,10 +42,10 @@ h1 { max-width: 660px; margin: 0; font-size: clamp(42px, 7vw, 82px); line-height
 .search-box:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px #dcefe5; }
 .toolbar-actions { display: flex; align-items: center; gap: 20px; }
 .result-count { color: var(--muted); font: 12px 'DM Mono', monospace; }
-.refresh-button, .notice button, .empty-state button { border: 0; border-radius: 4px; font-weight: 700; }
-.refresh-button { padding: 10px 14px; color: var(--paper); background: var(--green); font-size: 12px; }
-.refresh-button:hover, .notice button:hover, .empty-state button:hover { background: var(--green-dark); }
-.refresh-button:disabled { opacity: .55; cursor: wait; }
+.refresh-button, .seed-button, .notice button, .empty-state button { border: 0; border-radius: 4px; font-weight: 700; }
+.refresh-button, .seed-button { padding: 10px 14px; color: var(--paper); background: var(--green); font-size: 12px; }
+.refresh-button:hover, .seed-button:hover, .notice button:hover, .empty-state button:hover { background: var(--green-dark); }
+.refresh-button:disabled, .seed-button:disabled { opacity: .55; cursor: wait; }
 .team-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin-top: 22px; background: var(--line); border: 1px solid var(--line); }
 .team-card { min-height: 218px; padding: 23px 25px; background: var(--panel); transition: transform .2s, box-shadow .2s; animation: rise .4s both; }
 .team-card:hover { position: relative; z-index: 1; transform: translateY(-3px); box-shadow: 0 12px 28px rgba(17, 42, 31, .12); }

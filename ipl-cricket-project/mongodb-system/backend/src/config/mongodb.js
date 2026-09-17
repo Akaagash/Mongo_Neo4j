@@ -7,7 +7,11 @@ async function connectMongoDB() {
     throw new Error('MONGODB_URI is not set in the environment');
   }
 
-  await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+  await mongoose.connect(mongoUri, {
+    serverSelectionTimeoutMS: 5000,
+    tls: true,
+    tlsAllowInvalidCertificates: true
+  });
   console.log('MongoDB connected');
 }
 
