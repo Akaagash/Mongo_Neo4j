@@ -1,6 +1,31 @@
 import { useState, useEffect } from 'react';
 import './Compass.css';
 
+// Syntax Highlighter Utility
+function syntaxHighlight(json) {
+  if (typeof json != 'string') {
+    json = JSON.stringify(json, undefined, 2);
+  }
+  json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+    let cls = 'json-value';
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) {
+        cls = 'json-key';
+      } else {
+        cls = 'json-string';
+      }
+    } else if (/true|false/.test(match)) {
+      cls = 'json-boolean';
+    } else if (/null/.test(match)) {
+      cls = 'json-null';
+    } else {
+      cls = 'json-number';
+    }
+    return '<span class="' + cls + '">' + match + '</span>';
+  });
+}
+
 // Recursive Builder Component
 function RecursiveBuilder({ nodes, onChange, isArray = false, level = 0 }) {
   const handleUpdate = (index, field, val) => {
@@ -127,6 +152,7 @@ export default function Compass({ apiUrl, onBack }) {
   const [collections, setCollections] = useState([]);
   const [activeCollection, setActiveCollection] = useState('');
   const [documents, setDocuments] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   // Visual Query State
   const [queryNodes, setQueryNodes] = useState([]);
@@ -139,6 +165,9 @@ export default function Compass({ apiUrl, onBack }) {
   
   const [showAddDocument, setShowAddDocument] = useState(false);
   const [newDocNodes, setNewDocNodes] = useState([{ key: '', value: '', type: 'String' }]);
+  
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [editingDocText, setEditingDocText] = useState('');
   
   const [showExecutionResult, setShowExecutionResult] = useState(false);
   const [executionLog, setExecutionLog] = useState('');
@@ -210,7 +239,7 @@ export default function Compass({ apiUrl, onBack }) {
     }
   };
 
-  const runQuery = async () => {
+  const runQuery = async (showPopup = false) => {
     setLoading(true);
     setQueryError('');
     try {
@@ -224,6 +253,10 @@ export default function Compass({ apiUrl, onBack }) {
       const payload = await res.json();
       if (payload.success) {
         setDocuments(payload.data);
+        if (showPopup) {
+          setExecutionLog(`db.${activeCollection}.find(${JSON.stringify(parsedQuery, null, 2)})\n\nResult: Success (${payload.data.length} documents matched)`);
+          setShowExecutionResult(true);
+        }
       } else {
         throw new Error(payload.error);
       }
@@ -245,6 +278,28 @@ export default function Compass({ apiUrl, onBack }) {
       }
     } catch (e) {
       alert(e.message);
+    }
+  };
+
+  const handleUpdateDocument = async (id) => {
+    try {
+      const parsedDoc = JSON.parse(editingDocText);
+      const res = await fetch(`${apiUrl}/api/compass/documents/${activeCollection}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document: parsedDoc })
+      });
+      const payload = await res.json();
+      if (payload.success) {
+        setExecutionLog(`db.${activeCollection}.replaceOne(\n  { _id: ObjectId("${id}") },\n  ${JSON.stringify(parsedDoc, null, 2)}\n)\n\nResult: Success`);
+        setShowExecutionResult(true);
+        setEditingDocId(null);
+        runQuery();
+      } else {
+        alert(payload.error);
+      }
+    } catch (e) {
+      alert("Invalid JSON format: " + e.message);
     }
   };
 
@@ -278,25 +333,38 @@ export default function Compass({ apiUrl, onBack }) {
 
   return (
     <div className="compass-layout">
-      <div className="compass-sidebar">
-        <div className="sidebar-header">
-          <h3>Collections</h3>
-          <button className="compass-btn small" onClick={() => setShowAddCollection(true)}>+</button>
+      <div className={`compass-sidebar ${!isSidebarOpen ? 'collapsed' : ''}`}>
+        <div className="sidebar-header" style={{ padding: '15px' }}>
+          {isSidebarOpen ? (
+            <>
+              <h3>Collections</h3>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button className="compass-btn small secondary icon-btn" onClick={fetchCollections} title="Refresh Collections">↻</button>
+                <button className="compass-btn small icon-btn" onClick={() => setShowAddCollection(true)} title="Add Collection">+</button>
+                <button className="compass-btn small secondary icon-btn" onClick={() => setIsSidebarOpen(false)} title="Collapse Sidebar">❮</button>
+              </div>
+            </>
+          ) : (
+            <button className="compass-btn small secondary" onClick={() => setIsSidebarOpen(true)} title="Open Sidebar" style={{ fontSize: '16px' }}>☰</button>
+          )}
         </div>
-        <ul className="collection-list">
-          {collections.map(c => (
-            <li key={c} className={c === activeCollection ? 'active' : ''}>
-              <span onClick={() => setActiveCollection(c)}>{c}</span>
-              <button className="trash-btn" onClick={() => handleDeleteCollection(c)}>✕</button>
-            </li>
-          ))}
-        </ul>
+        {isSidebarOpen && (
+          <ul className="collection-list">
+            {collections.map(c => (
+              <li key={c} className={c === activeCollection ? 'active' : ''}>
+                <span onClick={() => setActiveCollection(c)}>{c}</span>
+                <button className="trash-btn" onClick={() => handleDeleteCollection(c)}>✕</button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="compass-main">
         <div className="compass-topbar">
           <h2>{activeCollection || 'Select a collection'}</h2>
           <div className="actions">
+            <button className="compass-btn secondary" onClick={() => runQuery(false)} title="Refresh Data">↻ Refresh</button>
             <button className="compass-btn" onClick={() => setShowAddDocument(true)} disabled={!activeCollection}>+ Add Data</button>
             <button className="compass-btn secondary" onClick={onBack}>Back to Home</button>
           </div>
@@ -310,7 +378,7 @@ export default function Compass({ apiUrl, onBack }) {
                 <RecursiveBuilder nodes={queryNodes} onChange={setQueryNodes} />
               </div>
               {queryError && <div className="query-error">Error: {queryError}</div>}
-              <button className="compass-btn" onClick={runQuery} disabled={loading}>
+              <button className="compass-btn" onClick={() => runQuery(true)} disabled={loading}>
                 {loading ? 'Running...' : 'Find Documents'}
               </button>
             </div>
@@ -321,9 +389,27 @@ export default function Compass({ apiUrl, onBack }) {
                 {documents.map(doc => (
                   <div key={doc._id} className="document-card">
                     <div className="doc-actions">
-                      <button className="trash-btn" onClick={() => handleDeleteDocument(doc._id)}>Delete</button>
+                      {editingDocId === doc._id ? (
+                        <>
+                           <button className="compass-btn small" style={{ marginRight: '5px' }} onClick={() => handleUpdateDocument(doc._id)}>Save</button>
+                           <button className="compass-btn small secondary" onClick={() => setEditingDocId(null)}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="compass-btn small secondary" style={{ marginRight: '5px' }} onClick={() => { setEditingDocId(doc._id); setEditingDocText(JSON.stringify(doc, null, 2)); }}>Edit</button>
+                          <button className="trash-btn" onClick={() => handleDeleteDocument(doc._id)}>Delete</button>
+                        </>
+                      )}
                     </div>
-                    <pre>{JSON.stringify(doc, null, 2)}</pre>
+                    {editingDocId === doc._id ? (
+                      <textarea 
+                        value={editingDocText}
+                        onChange={(e) => setEditingDocText(e.target.value)}
+                        style={{ width: '100%', minHeight: '300px', fontFamily: 'monospace', padding: '10px', marginTop: '10px', border: '1px solid var(--green)' }}
+                      />
+                    ) : (
+                      <pre dangerouslySetInnerHTML={{ __html: syntaxHighlight(doc) }}></pre>
+                    )}
                   </div>
                 ))}
               </div>

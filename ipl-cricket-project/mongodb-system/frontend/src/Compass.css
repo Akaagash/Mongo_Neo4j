@@ -17,6 +17,17 @@
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
+  transition: width 0.3s ease;
+}
+
+.compass-sidebar.collapsed {
+  width: 60px;
+}
+
+.compass-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 20px 0;
+  border-bottom: none;
 }
 
 .sidebar-header {
@@ -217,6 +228,11 @@
   font-size: 12px;
 }
 
+.compass-btn.icon-btn {
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
 .trash-btn {
   background: transparent;
   border: none;
@@ -399,3 +415,10 @@
 .builder-container {
   scrollbar-width: thin;
 }
+
+/* JSON Syntax Highlighting */
+.json-key { color: #1a734e; font-weight: 600; }
+.json-string { color: #d93025; }
+.json-number { color: #1a73e8; }
+.json-boolean { color: #f29900; font-weight: bold; }
+.json-null { color: #5f6368; font-style: italic; }

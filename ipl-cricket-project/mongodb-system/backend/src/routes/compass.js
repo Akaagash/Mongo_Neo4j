@@ -83,9 +83,28 @@ router.post('/documents/:collection', async (req, res) => {
 router.delete('/documents/:collection/:id', async (req, res) => {
   try {
     const { collection, id } = req.params;
-    // We need ObjectId from mongodb driver
     const { ObjectId } = require('mongodb');
     const result = await mongoose.connection.db.collection(collection).deleteOne({ _id: new ObjectId(id) });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update a document
+router.put('/documents/:collection/:id', async (req, res) => {
+  try {
+    const { collection, id } = req.params;
+    const { document } = req.body;
+    if (!document) return res.status(400).json({ success: false, error: 'Document required' });
+    
+    const { ObjectId } = require('mongodb');
+    const { _id, ...updatePayload } = document;
+    
+    const result = await mongoose.connection.db.collection(collection).replaceOne(
+      { _id: new ObjectId(id) },
+      updatePayload
+    );
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
