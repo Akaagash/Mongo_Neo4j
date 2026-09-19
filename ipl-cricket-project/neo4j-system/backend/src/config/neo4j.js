@@ -45,4 +45,4 @@ async function getNeo4jStatus() {
   }
 }
 
-module.exports = { closeNeo4j, connectNeo4j, getNeo4jStatus };
+module.exports = { closeNeo4j, connectNeo4j, getDriver, getNeo4jStatus };
