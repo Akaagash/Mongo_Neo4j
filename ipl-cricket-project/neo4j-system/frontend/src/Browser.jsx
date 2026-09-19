@@ -26,8 +26,8 @@ function syntaxHighlight(json) {
   });
 }
 
-// Simple force-directed graph layout
-function useForceLayout(nodes, relationships, width, height) {
+// Simple force-directed graph layout with dragging support
+function useForceLayout(nodes, relationships, width, height, draggedNodeRef) {
   const [positions, setPositions] = useState([]);
   const animRef = useRef(null);
 
@@ -42,21 +42,33 @@ function useForceLayout(nodes, relationships, width, height) {
     }));
 
     let iteration = 0;
-    const maxIterations = 200;
+    const maxIterations = 300; // Let it run longer to settle perfectly
 
     function simulate() {
-      if (iteration >= maxIterations) return;
-      iteration++;
+      if (iteration >= maxIterations && !draggedNodeRef.current) return;
+      if (!draggedNodeRef.current) iteration++;
 
-      // Repulsion between nodes
+      const nodeRadius = 22;
+      const minDistance = nodeRadius * 3.5; // Brutal spacing to ensure text underneath doesn't overlap nodes either!
+
+      // Repulsion between nodes & Collision detection
       for (let i = 0; i < pos.length; i++) {
         for (let j = i + 1; j < pos.length; j++) {
           const dx = pos[j].x - pos[i].x;
           const dy = pos[j].y - pos[i].y;
           const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-          const force = 8000 / (dist * dist);
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
+
+          // Brutal base repulsion to separate clusters
+          const force = 14000 / (dist * dist);
+          let fx = (dx / dist) * force;
+          let fy = (dy / dist) * force;
+
+          if (dist < minDistance) {
+            const collisionForce = (minDistance - dist) * 1.0;
+            fx += (dx / dist) * collisionForce;
+            fy += (dy / dist) * collisionForce;
+          }
+
           pos[i].vx -= fx; pos[i].vy -= fy;
           pos[j].vx += fx; pos[j].vy += fy;
         }
@@ -70,27 +82,30 @@ function useForceLayout(nodes, relationships, width, height) {
         const dx = target.x - source.x;
         const dy = target.y - source.y;
         const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const force = (dist - 150) * 0.02;
+        const force = (dist - 180) * 0.05; // Stronger attraction to keep clusters tight
         const fx = (dx / dist) * force;
         const fy = (dy / dist) * force;
         source.vx += fx; source.vy += fy;
         target.vx -= fx; target.vy -= fy;
       });
 
-      // Center gravity
+      // Very weak center gravity so clusters can spread out far apart
       pos.forEach(p => {
-        p.vx += (width / 2 - p.x) * 0.005;
-        p.vy += (height / 2 - p.y) * 0.005;
+        p.vx += (width / 2 - p.x) * 0.001;
+        p.vy += (height / 2 - p.y) * 0.001;
       });
 
       // Apply velocities with damping
       const damping = 0.85;
       pos.forEach(p => {
-        p.vx *= damping; p.vy *= damping;
-        p.x += p.vx; p.y += p.vy;
-        // Clamp within bounds
-        p.x = Math.max(60, Math.min(width - 60, p.x));
-        p.y = Math.max(60, Math.min(height - 60, p.y));
+        if (draggedNodeRef.current && draggedNodeRef.current.id === p.id) {
+          p.x = draggedNodeRef.current.x;
+          p.y = draggedNodeRef.current.y;
+          p.vx = 0; p.vy = 0;
+        } else {
+          p.vx *= damping; p.vy *= damping;
+          p.x += p.vx; p.y += p.vy;
+        }
       });
 
       setPositions([...pos]);
@@ -124,71 +139,196 @@ function getLabelColor(labels) {
 // Graph Visualization Component
 function GraphView({ graphData, onNodeClick }) {
   const containerRef = useRef(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  // Interactivity state
+  const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0 });
+  const draggedNodeRef = useRef(null);
+  const isClickRef = useRef(true); // to distinguish drag vs click
+
+  // State for cursor explicitly to trigger re-renders instantly on mouse down/up
+  const [cursorStyle, setCursorStyle] = useState('grab');
 
   useEffect(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setDimensions({ width: rect.width || 800, height: 500 });
-    }
+    const updateDims = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setDimensions({ width: rect.width || 800, height: rect.height || 600 });
+      }
+    };
+    updateDims();
+    window.addEventListener('resize', updateDims);
+    return () => window.removeEventListener('resize', updateDims);
   }, [graphData]);
 
   const { nodes, relationships } = graphData;
-  const positions = useForceLayout(nodes, relationships, dimensions.width, dimensions.height);
+  const positions = useForceLayout(nodes, relationships, dimensions.width, dimensions.height, draggedNodeRef);
 
   const uniqueLabels = [...new Set(nodes.flatMap(n => n.labels || []))];
 
+  // Mouse handlers for panning/zooming on the SVG
+  const handleWheel = useCallback((e) => {
+    // Only allow pinch-to-zoom (trackpads send ctrlKey=true during pinch gestures)
+    if (!e.ctrlKey) return;
+
+    e.preventDefault();
+    // Smooth scaling for trackpads
+    const scaleChange = Math.exp(-e.deltaY * 0.01);
+    setTransform(prev => ({
+      ...prev,
+      k: Math.max(0.1, Math.min(5, prev.k * scaleChange))
+    }));
+  }, []);
+
+  const handleZoom = (factor) => {
+    setTransform(prev => ({
+      ...prev,
+      k: Math.max(0.1, Math.min(5, prev.k * factor))
+    }));
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el) {
+      el.addEventListener('wheel', handleWheel, { passive: false });
+      return () => el.removeEventListener('wheel', handleWheel);
+    }
+  }, [handleWheel]);
+
+  const handleSvgMouseDown = (e) => {
+    if (e.target.tagName === 'svg') {
+      isPanning.current = true;
+      setCursorStyle('grabbing');
+      panStart.current = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+    }
+  };
+
+  const handleSvgMouseMove = (e) => {
+    if (isPanning.current) {
+      setTransform(prev => ({ ...prev, x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y }));
+    }
+    if (draggedNodeRef.current) {
+      isClickRef.current = false;
+      const rect = containerRef.current.getBoundingClientRect();
+      const svgX = (e.clientX - rect.left - transform.x) / transform.k;
+      const svgY = (e.clientY - rect.top - transform.y) / transform.k;
+      draggedNodeRef.current = { ...draggedNodeRef.current, x: svgX, y: svgY };
+    }
+  };
+
+  const handleSvgMouseUp = () => {
+    isPanning.current = false;
+    draggedNodeRef.current = null;
+    setCursorStyle('grab');
+  };
+
   return (
-    <div className="graph-container" ref={containerRef} style={{ height: '500px' }}>
-      <svg width={dimensions.width} height={500} viewBox={`0 0 ${dimensions.width} 500`}>
-        {/* Draw relationships */}
-        {relationships.map((rel, i) => {
-          const source = positions.find(p => p.id === rel.source);
-          const target = positions.find(p => p.id === rel.target);
-          if (!source || !target) return null;
-          const midX = (source.x + target.x) / 2;
-          const midY = (source.y + target.y) / 2;
-          return (
-            <g key={`rel-${i}`}>
-              <line
-                className="graph-link"
-                x1={source.x} y1={source.y}
-                x2={target.x} y2={target.y}
-                stroke="#d8dce8"
-                strokeWidth={1.5}
-                markerEnd="url(#arrowhead)"
-              />
-              <text className="graph-link-label" x={midX} y={midY - 5} textAnchor="middle">
-                {rel.type}
-              </text>
-            </g>
-          );
-        })}
+    <div
+      className="graph-container"
+      ref={containerRef}
+      style={{ height: '100%', flex: 1, minHeight: '600px', cursor: cursorStyle, overflow: 'hidden', position: 'relative', borderRadius: '8px', border: '1px solid var(--line)' }}
+      onMouseDown={handleSvgMouseDown}
+      onMouseMove={handleSvgMouseMove}
+      onMouseUp={handleSvgMouseUp}
+      onMouseLeave={handleSvgMouseUp}
+    >
+      <svg width={dimensions.width} height={dimensions.height} viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}>
+        <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
+          {/* Draw relationships */}
+          {relationships.map((rel, i) => {
+            const source = positions.find(p => p.id === rel.source);
+            const target = positions.find(p => p.id === rel.target);
+            if (!source || !target) return null;
+            const midX = (source.x + target.x) / 2;
+            const midY = (source.y + target.y) / 2;
+            return (
+              <g key={`rel-${i}`}>
+                <line
+                  className="graph-link"
+                  x1={source.x} y1={source.y}
+                  x2={target.x} y2={target.y}
+                  stroke="#cbd5e1"
+                  strokeWidth={1.5}
+                  markerEnd="url(#arrowhead)"
+                />
+                <text
+                  className="graph-link-label"
+                  x={midX}
+                  y={midY - 5}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="#94a3b8"
+                  style={{ userSelect: 'none', pointerEvents: 'none', paintOrder: 'stroke', stroke: '#fff', strokeWidth: '3px' }}
+                >
+                  {rel.type}
+                </text>
+              </g>
+            );
+          })}
 
-        {/* Arrow marker */}
-        <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
-          </marker>
-        </defs>
+          {/* Arrow marker */}
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="32" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e1" />
+            </marker>
+          </defs>
 
-        {/* Draw nodes */}
-        {positions.map((pos) => {
-          const node = nodes.find(n => n.id === pos.id);
-          if (!node) return null;
-          const color = getLabelColor(node.labels);
-          const displayName = node.properties?.name || node.labels?.[0] || 'Node';
-          return (
-            <g key={pos.id} className="graph-node" transform={`translate(${pos.x}, ${pos.y})`} onClick={() => onNodeClick && onNodeClick(node)}>
-              <circle r="22" fill={color} stroke="#fff" strokeWidth="2" />
-              <text dy="4" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="700">
-                {displayName.length > 8 ? displayName.substring(0, 7) + '..' : displayName}
-              </text>
-              <title>{displayName} ({node.labels?.join(', ')})</title>
-            </g>
-          );
-        })}
+          {/* Draw nodes */}
+          {positions.map((pos) => {
+            const node = nodes.find(n => n.id === pos.id);
+            if (!node) return null;
+            const color = getLabelColor(node.labels);
+            const displayName = node.properties?.name || node.labels?.[0] || 'Node';
+            return (
+              <g
+                key={pos.id}
+                className="graph-node"
+                transform={`translate(${pos.x}, ${pos.y})`}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  isClickRef.current = true;
+                  setCursorStyle('grabbing');
+                  draggedNodeRef.current = { id: pos.id, x: pos.x, y: pos.y };
+                }}
+                onClick={(e) => {
+                  if (isClickRef.current && onNodeClick) {
+                    onNodeClick(node);
+                  }
+                }}
+                style={{ cursor: cursorStyle === 'grabbing' ? 'grabbing' : 'grab' }}
+              >
+                <circle r="12" fill={color} stroke="#fff" strokeWidth="2" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }} />
+
+                {/* Full name below the node with thick white stroke for brutal readability */}
+                <text
+                  dy="26"
+                  textAnchor="middle"
+                  fill="var(--ink)"
+                  fontSize="12"
+                  fontWeight="800"
+                  style={{ userSelect: 'none', pointerEvents: 'none', paintOrder: 'stroke', stroke: '#fff', strokeWidth: '5px' }}
+                >
+                  {displayName}
+                </text>
+                <title>{displayName} ({node.labels?.join(', ')})</title>
+              </g>
+            );
+          })}
+        </g>
       </svg>
+
+      {/* Control Hint and Zoom Buttons */}
+      <div style={{ position: 'absolute', bottom: '15px', right: '15px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '5px' }}>
+          <button onClick={() => handleZoom(1.2)} style={{ width: '32px', height: '32px', borderRadius: '4px', background: 'var(--panel)', border: '1px solid var(--accent)', color: 'var(--ink)', cursor: 'pointer', fontWeight: 'bold', display: 'grid', placeItems: 'center' }}>+</button>
+          <button onClick={() => handleZoom(0.8)} style={{ width: '32px', height: '32px', borderRadius: '4px', background: 'var(--panel)', border: '1px solid var(--accent)', color: 'var(--ink)', cursor: 'pointer', fontWeight: 'bold', display: 'grid', placeItems: 'center' }}>−</button>
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--muted)', background: 'rgba(255,255,255,0.8)', padding: '4px 8px', borderRadius: '4px', pointerEvents: 'none' }}>
+          Pinch to Zoom • Drag background to Pan • Drag nodes to Move
+        </div>
+      </div>
 
       <div className="graph-legend">
         {uniqueLabels.map(label => (
@@ -266,41 +406,41 @@ export default function Browser({ apiUrl, onBack }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'graph' | 'cypher'
   const [listFilter, setListFilter] = useState('');
-  
+
   const filteredNodes = useMemo(() => {
     if (!listFilter.trim()) return nodes;
     const lowerQuery = listFilter.toLowerCase();
     return nodes.filter(node => JSON.stringify(node).toLowerCase().includes(lowerQuery));
   }, [nodes, listFilter]);
-  
+
   // Cypher
   const [cypherQuery, setCypherQuery] = useState('');
   const [cypherResults, setCypherResults] = useState([]);
   const [cypherFilter, setCypherFilter] = useState('');
   const [queryError, setQueryError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const filteredCypherResults = useMemo(() => {
     if (!cypherFilter.trim()) return cypherResults;
     const lowerQuery = cypherFilter.toLowerCase();
     return cypherResults.filter(row => JSON.stringify(row).toLowerCase().includes(lowerQuery));
   }, [cypherResults, cypherFilter]);
-  
+
   // Modals
   const [showAddLabel, setShowAddLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
-  
+
   const [showAddNode, setShowAddNode] = useState(false);
   const [newNodeFields, setNewNodeFields] = useState([{ key: '', value: '', type: 'String' }]);
-  
+
   const [editingNodeId, setEditingNodeId] = useState(null);
   const [editingNodeText, setEditingNodeText] = useState('');
-  
+
   const [showExecutionResult, setShowExecutionResult] = useState(false);
   const [executionLog, setExecutionLog] = useState('');
 
   useEffect(() => { fetchLabels(); }, []);
-  
+
   useEffect(() => {
     if (activeLabel) {
       fetchNodes();
@@ -510,14 +650,14 @@ export default function Browser({ apiUrl, onBack }) {
                 <button className="browser-btn" onClick={handleRunCypher} disabled={loading}>
                   {loading ? 'Running...' : 'Execute Cypher'}
                 </button>
-                
+
                 {cypherResults.length > 0 && (
                   <div className="documents-view" style={{ marginTop: '15px' }}>
                     <div className="doc-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{cypherResults.length} Records returned</span>
-                      <input 
-                        type="search" 
-                        placeholder="Filter results..." 
+                      <input
+                        type="search"
+                        placeholder="Filter results..."
                         value={cypherFilter}
                         onChange={e => setCypherFilter(e.target.value)}
                         style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--accent)', background: 'var(--paper)', color: 'var(--ink)' }}
@@ -550,9 +690,9 @@ export default function Browser({ apiUrl, onBack }) {
               <div className="documents-view">
                 <div className="doc-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>{nodes.length} Nodes with label :{activeLabel}</span>
-                  <input 
-                    type="search" 
-                    placeholder="Filter nodes..." 
+                  <input
+                    type="search"
+                    placeholder="Filter nodes..."
                     value={listFilter}
                     onChange={e => setListFilter(e.target.value)}
                     style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--accent)', background: 'var(--paper)', color: 'var(--ink)' }}
