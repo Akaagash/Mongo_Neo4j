@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './Browser.css';
 
 // Syntax Highlighter
@@ -265,12 +265,26 @@ export default function Browser({ apiUrl, onBack }) {
   const [graphData, setGraphData] = useState({ nodes: [], relationships: [] });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'graph' | 'cypher'
+  const [listFilter, setListFilter] = useState('');
+  
+  const filteredNodes = useMemo(() => {
+    if (!listFilter.trim()) return nodes;
+    const lowerQuery = listFilter.toLowerCase();
+    return nodes.filter(node => JSON.stringify(node).toLowerCase().includes(lowerQuery));
+  }, [nodes, listFilter]);
   
   // Cypher
   const [cypherQuery, setCypherQuery] = useState('');
   const [cypherResults, setCypherResults] = useState([]);
+  const [cypherFilter, setCypherFilter] = useState('');
   const [queryError, setQueryError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const filteredCypherResults = useMemo(() => {
+    if (!cypherFilter.trim()) return cypherResults;
+    const lowerQuery = cypherFilter.toLowerCase();
+    return cypherResults.filter(row => JSON.stringify(row).toLowerCase().includes(lowerQuery));
+  }, [cypherResults, cypherFilter]);
   
   // Modals
   const [showAddLabel, setShowAddLabel] = useState(false);
@@ -499,9 +513,18 @@ export default function Browser({ apiUrl, onBack }) {
                 
                 {cypherResults.length > 0 && (
                   <div className="documents-view" style={{ marginTop: '15px' }}>
-                    <div className="doc-meta">{cypherResults.length} Records returned</div>
+                    <div className="doc-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{cypherResults.length} Records returned</span>
+                      <input 
+                        type="search" 
+                        placeholder="Filter results..." 
+                        value={cypherFilter}
+                        onChange={e => setCypherFilter(e.target.value)}
+                        style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--accent)', background: 'var(--paper)', color: 'var(--ink)' }}
+                      />
+                    </div>
                     <div className="doc-list">
-                      {cypherResults.map((row, i) => (
+                      {filteredCypherResults.map((row, i) => (
                         <div key={i} className="document-card">
                           <pre dangerouslySetInnerHTML={{ __html: syntaxHighlight(row) }}></pre>
                         </div>
@@ -525,9 +548,18 @@ export default function Browser({ apiUrl, onBack }) {
             {/* List View */}
             {viewMode === 'list' && (
               <div className="documents-view">
-                <div className="doc-meta">{nodes.length} Nodes with label :{activeLabel}</div>
+                <div className="doc-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{nodes.length} Nodes with label :{activeLabel}</span>
+                  <input 
+                    type="search" 
+                    placeholder="Filter nodes..." 
+                    value={listFilter}
+                    onChange={e => setListFilter(e.target.value)}
+                    style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--accent)', background: 'var(--paper)', color: 'var(--ink)' }}
+                  />
+                </div>
                 <div className="doc-list">
-                  {nodes.map(node => (
+                  {filteredNodes.map(node => (
                     <div key={node._id} className="document-card">
                       <div className="doc-actions">
                         {editingNodeId === node._id ? (

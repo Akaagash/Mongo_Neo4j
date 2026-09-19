@@ -14,12 +14,14 @@ function App() {
   
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [isClosing, setIsClosing] = useState(false)
+  const [currentSlide, setCurrentSlide] = useState(1)
 
   const handleCloseModal = () => {
     setIsClosing(true)
     setTimeout(() => {
       setSelectedTeam(null)
       setIsClosing(false)
+      setCurrentSlide(1)
     }, 600) // Match animation duration
   }
 
@@ -173,43 +175,75 @@ function App() {
           <div 
             className={`app-modal ${isClosing ? 'closing' : ''} team-modal-content`} 
             onClick={e => e.stopPropagation()}
+            style={{ width: '600px', maxWidth: '90vw' }}
           >
-             <button className="exit-btn" onClick={handleCloseModal}>✕</button>
-             <h2 style={{ marginTop: 0, color: 'var(--green-dark)', fontSize: '32px', marginBottom: '25px' }}>{selectedTeam?.name}</h2>
-             
-             <div style={{ display: 'grid', gap: '20px' }}>
-                {selectedTeam?.city && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>City</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.city}</strong></div>}
-                {selectedTeam?.score !== undefined && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Score</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.score}</strong></div>}
-                
-                {selectedTeam?.tags && selectedTeam.tags.length > 0 && (
-                    <div>
-                        <span className="eyebrow" style={{display:'block', marginBottom:'8px'}}>Tags</span>
-                        <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
-                           {selectedTeam.tags.map(t => <span key={t} className="team-chip">{t}</span>)}
-                        </div>
-                    </div>
-                )}
+             <button className="exit-btn" onClick={handleCloseModal}>&#x2715;</button>
+             <h2 style={{ marginTop: 0, color: 'var(--accent-dark)', fontSize: '32px', marginBottom: '5px' }}>{selectedTeam?.name}</h2>
+             <div style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '25px', fontFamily: "'DM Mono', monospace" }}>Page {currentSlide} of 3</div>
+             {/* Slide 1 */}
+             {currentSlide === 1 && (
+               <div className="slide-content" style={{ animation: 'slideInRight 0.3s ease-out' }}>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    {selectedTeam?.city && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>City</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.city}</strong></div>}
+                    {selectedTeam?.captain && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Captain</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.captain}</strong></div>}
+                    {selectedTeam?.coach && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Head Coach</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.coach}</strong></div>}
+                    {selectedTeam?.founded && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Founded</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.founded}</strong></div>}
+                    {selectedTeam?.home_ground && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Home Ground</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.home_ground}</strong></div>}
+                    {selectedTeam?.capacity && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Capacity</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.capacity.toLocaleString()}</strong></div>}
+                    {selectedTeam?.followers_millions !== undefined && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Followers (M)</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.followers_millions}</strong></div>}
+                 </div>
+               </div>
+             )}
 
-                {selectedTeam?.stats && (
-                    <div>
-                        <span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Stats</span>
-                        <div style={{ display: 'flex', gap: '30px', fontSize: '16px' }}>
-                           <span>Wins: <strong>{selectedTeam.stats.wins}</strong></span>
-                           <span>Losses: <strong>{selectedTeam.stats.losses}</strong></span>
-                        </div>
-                    </div>
-                )}
+             {/* Slide 2 */}
+             {currentSlide === 2 && (
+               <div className="slide-content" style={{ animation: 'slideInRight 0.3s ease-out' }}>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    {selectedTeam?.matches && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Matches Played</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.matches}</strong></div>}
+                    {selectedTeam?.win_percentage && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Win Percentage</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.win_percentage}%</strong></div>}
+                    {selectedTeam?.wins !== undefined && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Wins / Losses</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.wins} / {selectedTeam.losses}</strong></div>}
+                    {selectedTeam?.titles !== undefined && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Titles</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.titles}</strong></div>}
+                    {selectedTeam?.playoff_appearances !== undefined && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Playoffs</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.playoff_appearances}</strong></div>}
+                    {selectedTeam?.franchise_value_usd && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Franchise Value</span> <strong style={{ fontSize: '18px' }}>${selectedTeam.franchise_value_usd}</strong></div>}
+                    {selectedTeam?.highest_paid_player?.name && <div><span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Top Earner</span> <strong style={{ fontSize: '18px' }}>{selectedTeam.highest_paid_player.name} ({selectedTeam.highest_paid_player.salary})</strong></div>}
+                 </div>
+               </div>
+             )}
 
-                {selectedTeam?.players && selectedTeam.players.length > 0 && (
-                    <div>
-                        <span className="eyebrow" style={{display:'block', marginBottom:'5px'}}>Players</span>
-                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '16px', lineHeight: '1.6' }}>
-                           {selectedTeam.players.map((p, i) => (
-                               <li key={i}><strong>{p.name}</strong> <span style={{ color: 'var(--muted)' }}>({p.role})</span></li>
-                           ))}
-                        </ul>
-                    </div>
-                )}
+             {/* Slide 3 */}
+             {currentSlide === 3 && (
+               <div className="slide-content" style={{ animation: 'slideInRight 0.3s ease-out' }}>
+                 <div style={{ display: 'grid', gap: '10px' }}>
+                    {selectedTeam?.squad?.map((player, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'var(--paper)', borderRadius: '6px' }}>
+                        <strong style={{ fontSize: '15px' }}>{player.name}</strong>
+                        <div style={{ textAlign: 'right' }}>
+                           <div style={{ fontSize: '13px', color: 'var(--accent-dark)', fontWeight: 'bold' }}>{player.role}</div>
+                           <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{player.country}</div>
+                        </div>
+                      </div>
+                    ))}
+                 </div>
+               </div>
+             )}
+
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px', paddingTop: '20px', borderTop: '1px solid var(--line)' }}>
+               <button 
+                 onClick={() => setCurrentSlide(prev => Math.max(1, prev - 1))} 
+                 disabled={currentSlide === 1}
+                 className="refresh-button"
+                 style={{ background: currentSlide === 1 ? 'var(--muted)' : 'var(--green)', color: 'white', border: 'none' }}
+               >
+                 &larr; Previous
+               </button>
+               <button 
+                 onClick={() => setCurrentSlide(prev => Math.min(3, prev + 1))} 
+                 disabled={currentSlide === 3}
+                 className="refresh-button"
+                 style={{ background: currentSlide === 3 ? 'var(--muted)' : 'var(--green)', color: 'white', border: 'none' }}
+               >
+                 Next &rarr;
+               </button>
              </div>
           </div>
         </div>
