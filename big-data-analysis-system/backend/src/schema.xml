@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DatabaseSchema>
+  <MongoDB>
+    <Description>Document Store (BSON) - High-velocity telemetry, continuous ball kinematics, 3D Hawk-Eye tracking vectors.</Description>
+    <Collection name="deliveries">
+      <Description>Ball-by-ball telemetry, kinematics, and match events.</Description>
+      <Fields>
+        <Field name="match_id" type="String" />
+        <Field name="inning" type="Integer" />
+        <Field name="batting_team" type="String" />
+        <Field name="bowling_team" type="String" />
+        <Field name="over" type="Integer" />
+        <Field name="ball" type="Integer" />
+        <Field name="batsman" type="String" />
+        <Field name="bowler" type="String" />
+        <Field name="runs_batter" type="Integer" />
+        <Field name="total_runs" type="Integer" />
+        <Field name="is_wicket" type="Boolean" />
+        <Field name="is_dot" type="Boolean" />
+        <Field name="is_boundary" type="Boolean" />
+        <Field name="phase" type="String">Powerplay | Middle | Death</Field>
+        <Field name="delivery_length" type="String">Yorker | Full | Good Length | Short</Field>
+        <Field name="speed_bracket" type="String">Spin | &lt;130 | 130-140 | 140-150 | &gt;150</Field>
+        <Field name="pitch_type" type="String" />
+        <Field name="bowler_type" type="String" />
+        <Field name="release_speed_kmh" type="Float" />
+        <Field name="pitch_coordinate_x" type="Float" />
+        <Field name="pitch_coordinate_y" type="Float" />
+      </Fields>
+    </Collection>
+    <Collection name="ipl_list">
+      <Description>Franchise metrics and squad details.</Description>
+      <Fields>
+        <Field name="name" type="String" />
+        <Field name="city" type="String" />
+        <Field name="captain" type="String" />
+        <Field name="coach" type="String" />
+        <Field name="home_ground" type="String" />
+        <Field name="matches" type="Integer" />
+        <Field name="wins" type="Integer" />
+        <Field name="win_percentage" type="Float" />
+        <Field name="titles" type="Integer" />
+        <Field name="squad" type="Array">
+            <Field name="name" type="String" />
+            <Field name="role" type="String" />
+            <Field name="country" type="String" />
+        </Field>
+      </Fields>
+    </Collection>
+  </MongoDB>
+  <Neo4j>
+    <Description>Labeled Property Graph (LPG) - Complex network topology, causal impact deltas, head-to-head match-up graphs.</Description>
+    <Nodes>
+      <Node label="Team">
+        <Properties>
+          <Property name="name" type="String" />
+          <Property name="city" type="String" />
+          <Property name="win_percentage" type="Float" />
+        </Properties>
+      </Node>
+      <Node label="Player">
+        <Properties>
+          <Property name="name" type="String" />
+          <Property name="role" type="String" />
+          <Property name="country" type="String" />
+        </Properties>
+      </Node>
+      <Node label="Venue">
+        <Properties>
+          <Property name="name" type="String" />
+          <Property name="capacity" type="Integer" />
+          <Property name="pitch_type" type="String" />
+        </Properties>
+      </Node>
+    </Nodes>
+    <Relationships>
+      <Relationship type="PLAYS_FOR">
+        <From label="Player" />
+        <To label="Team" />
+      </Relationship>
+      <Relationship type="HEAD_TO_HEAD">
+        <From label="Team" />
+        <To label="Team" />
+        <Properties>
+          <Property name="matches" type="Integer" />
+          <Property name="win_pct" type="Float" />
+        </Properties>
+      </Relationship>
+      <Relationship type="KEY_FACTOR">
+        <From label="Player" />
+        <To label="Team" />
+        <Properties>
+          <Property name="impact_delta" type="Float" />
+          <Property name="win_pct_with" type="Float" />
+          <Property name="win_pct_without" type="Float" />
+        </Properties>
+      </Relationship>
+      <Relationship type="RIVAL_BATSMAN">
+        <From label="Player" />
+        <To label="Player" />
+        <Properties>
+          <Property name="balls_faced" type="Integer" />
+          <Property name="runs_conceded" type="Integer" />
+          <Property name="dismissals" type="Integer" />
+          <Property name="strike_rate" type="Float" />
+        </Properties>
+      </Relationship>
+      <Relationship type="HOME_VENUE">
+        <From label="Team" />
+        <To label="Venue" />
+      </Relationship>
+    </Relationships>
+  </Neo4j>
+</DatabaseSchema>

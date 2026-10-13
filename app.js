@@ -1,7 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-// Configuration for the 4 systems to run
+// Configuration for the 6 systems to run
 const processes = [
   { 
     name: 'Mongo-Backend', 
@@ -30,11 +30,25 @@ const processes = [
     args: ['run', 'dev'], 
     cwd: path.join(__dirname, 'neo4j-system', 'frontend'), 
     color: '\x1b[35m' // Magenta
+  },
+  { 
+    name: 'BigData-Backend', 
+    command: 'npm', 
+    args: ['run', 'start'], 
+    cwd: path.join(__dirname, 'big-data-analysis-system', 'backend'), 
+    color: '\x1b[33m' // Yellow
+  },
+  { 
+    name: 'BigData-Frontend', 
+    command: 'npm', 
+    args: ['run', 'dev'], 
+    cwd: path.join(__dirname, 'big-data-analysis-system', 'frontend'), 
+    color: '\x1b[92m' // Bright Green
   }
 ];
 
 console.log('==================================================');
-console.log('🚀 Starting IPL Cricket Project - All Systems');
+console.log('[IPL Cricket Project] Starting All Distributed Systems');
 console.log('==================================================\n');
 
 processes.forEach(proc => {

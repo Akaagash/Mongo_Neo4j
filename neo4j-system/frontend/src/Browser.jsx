@@ -505,7 +505,6 @@ export default function Browser({ apiUrl, onBack }) {
       const payload = await res.json();
       if (payload.success) {
         setExecutionLog(`MATCH (n:${name}) DETACH DELETE n\n\nResult: Success`);
-        setShowExecutionResult(true);
         if (activeLabel === name) { setActiveLabel(''); setNodes([]); setGraphData({ nodes: [], relationships: [] }); }
         fetchLabels();
       }
@@ -526,7 +525,6 @@ export default function Browser({ apiUrl, onBack }) {
       if (payload.success) {
         setCypherResults(payload.data);
         setExecutionLog(`${cypherQuery}\n\nResult: Success (${payload.data.length} records returned)`);
-        setShowExecutionResult(true);
       } else { throw new Error(payload.error); }
     } catch (e) { setQueryError(e.message); }
     setLoading(false);
@@ -544,7 +542,6 @@ export default function Browser({ apiUrl, onBack }) {
       const payload = await res.json();
       if (payload.success) {
         setExecutionLog(`CREATE (n:${activeLabel} ${JSON.stringify(props, null, 2)})\n\nResult: Success`);
-        setShowExecutionResult(true);
         setShowAddNode(false);
         setNewNodeFields([{ key: '', value: '', type: 'String' }]);
         fetchNodes();
@@ -560,7 +557,6 @@ export default function Browser({ apiUrl, onBack }) {
       const payload = await res.json();
       if (payload.success) {
         setExecutionLog(`MATCH (n) WHERE id(n) = ${id} DETACH DELETE n\n\nResult: Success`);
-        setShowExecutionResult(true);
         fetchNodes();
         fetchGraph();
       }
@@ -579,7 +575,6 @@ export default function Browser({ apiUrl, onBack }) {
       const payload = await res.json();
       if (payload.success) {
         setExecutionLog(`MATCH (n) WHERE id(n) = ${id}\nSET n = ${JSON.stringify(props, null, 2)}\n\nResult: Success`);
-        setShowExecutionResult(true);
         setEditingNodeId(null);
         fetchNodes();
         fetchGraph();
@@ -772,23 +767,6 @@ export default function Browser({ apiUrl, onBack }) {
         </div>
       )}
 
-      {/* Execution Result Modal */}
-      {showExecutionResult && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Execution Result</h3>
-              <button className="exit-btn" onClick={() => setShowExecutionResult(false)}>&#x2715;</button>
-            </div>
-            <div className="modal-body">
-              <pre className="execution-log">{executionLog}</pre>
-              <div className="modal-actions">
-                <button className="browser-btn" onClick={() => setShowExecutionResult(false)}>Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
